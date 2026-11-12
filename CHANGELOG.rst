@@ -1,6 +1,19 @@
 Changes
 =======
 
+Unreleased
+----------
+
+- Add ``geojson.dump_feature_collection`` (with ``dumps_feature_collection``,
+  ``stream_dump``, ``dump_stream`` and ``FeatureCollection.stream`` entry
+  points) to write a FeatureCollection incrementally from a single-pass
+  feature iterable. Caller-supplied collection metadata is written as the
+  header, features are converted with the same rules as
+  ``FeatureCollection``, and a bad member raises
+  ``FeatureCollectionStreamError`` (a ``ValueError`` and ``TypeError``)
+  naming its index while leaving the stream unclosed and the remaining source
+  unconsumed.
+
 3.3.0
 ----------
 

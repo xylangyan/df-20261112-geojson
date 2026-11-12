@@ -52,6 +52,25 @@ class FeatureCollection(GeoJSON):
     def errors(self):
         return self.check_list_errors(lambda x: x.errors(), self.features)
 
+    @classmethod
+    def stream(cls, features, fp, metadata=None, **kwargs):
+        """Write a FeatureCollection to ``fp`` without materializing features."""
+        import geojson.codec
+
+        header = dict(metadata or {})
+        return geojson.codec.dump_feature_collection(
+            features, fp, header, **kwargs)
+
+    @classmethod
+    def dump(cls, features, fp, metadata=None, **kwargs):
+        """Streaming alias for :meth:`stream`."""
+        return cls.stream(features, fp, metadata, **kwargs)
+
+    @classmethod
+    def write(cls, features, fp, metadata=None, **kwargs):
+        """Streaming alias for :meth:`stream`."""
+        return cls.stream(features, fp, metadata, **kwargs)
+
     def __getitem__(self, key):
         try:
             return self.get("features", ())[key]

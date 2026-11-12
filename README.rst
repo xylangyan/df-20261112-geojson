@@ -229,6 +229,36 @@ Visualize the result of the example above `here <https://gist.github.com/frewsxc
 
 .. _Section 3.3: https://tools.ietf.org/html/rfc7946#section-3.3
 
+Streaming FeatureCollections
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``FeatureCollection`` materializes all of its features. When the features come
+from a single-pass iterable, use ``geojson.dump_feature_collection`` instead:
+it writes the collection header and each feature as it is consumed. Caller
+metadata such as ``bbox`` is passed as a mapping, while ``type`` and
+``features`` are managed by the writer.
+
+.. code:: python
+
+  >>> import geojson
+
+  >>> from io import StringIO
+
+  >>> output = StringIO()
+
+  >>> geojson.dump_feature_collection(
+  ...     iter([my_feature]), output, {"bbox": [-180, -90, 180, 90]})
+
+  >>> decoded = geojson.loads(output.getvalue())
+
+  >>> decoded["type"], decoded["bbox"]
+  ('FeatureCollection', [-180, -90, 180, 90])
+
+If a member cannot be converted to GeoJSON, the writer raises
+``FeatureCollectionStreamError`` naming its zero-based index and one-based
+item number. The stream is left unclosed with the members written so far, and
+the remaining source is not consumed.
+
 GeoJSON encoding/decoding
 -------------------------
 
