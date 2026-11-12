@@ -1,6 +1,21 @@
 Changes
 =======
 
+Unreleased
+----------
+
+- Preserve foreign (non-standard) members when converting objects through
+  ``__geo_interface__`` or ``GeoJSON.to_instance``. The new ``keep_extra``
+  option (enabled by default; ``preserve_extra`` is an alias) keeps members
+  at their original level and can be disabled explicitly. Standard members
+  continue to use the existing type checks and validation.
+
+- Conversion now detaches the result from the source mapping, so later
+  changes to the external mapping do not mutate the converted object.
+
+- ``Feature.properties`` preserves ``null`` and list values instead of
+  coercing them to an empty dict.
+
 3.3.0
 ----------
 

@@ -191,13 +191,13 @@ Feature
   >>> my_point = Point((-3.68, 40.41))
 
   >>> Feature(geometry=my_point)  # doctest: +ELLIPSIS
-  {"geometry": {"coordinates": [-3.68..., 40.4...], "type": "Point"}, "properties": {}, "type": "Feature"}
+  {"geometry": {"coordinates": [-3.68..., 40.4...], "type": "Point"}, "properties": null, "type": "Feature"}
 
   >>> Feature(geometry=my_point, properties={"country": "Spain"})  # doctest: +ELLIPSIS
   {"geometry": {"coordinates": [-3.68..., 40.4...], "type": "Point"}, "properties": {"country": "Spain"}, "type": "Feature"}
 
   >>> Feature(geometry=my_point, id=27)  # doctest: +ELLIPSIS
-  {"geometry": {"coordinates": [-3.68..., 40.4...], "type": "Point"}, "id": 27, "properties": {}, "type": "Feature"}
+  {"geometry": {"coordinates": [-3.68..., 40.4...], "type": "Point"}, "id": 27, "properties": null, "type": "Feature"}
 
 Visualize the results of the examples above `here <https://gist.github.com/frewsxcv/4488d30209d22685c075>`__. General information about Feature can be found in `Section 3.2`_ within `The GeoJSON Format Specification`_.
 
@@ -217,7 +217,7 @@ FeatureCollection
   >>> feature_collection = FeatureCollection([my_feature, my_other_feature])
 
   >>> feature_collection # doctest: +ELLIPSIS
-  {"features": [{"geometry": {"coordinates": [1.643..., -19.12...], "type": "Point"}, "properties": {}, "type": "Feature"}, {"geometry": {"coordinates": [-80.23..., -22.53...], "type": "Point"}, "properties": {}, "type": "Feature"}], "type": "FeatureCollection"}
+  {"features": [{"geometry": {"coordinates": [1.643..., -19.12...], "type": "Point"}, "properties": null, "type": "Feature"}, {"geometry": {"coordinates": [-80.23..., -22.53...], "type": "Point"}, "properties": null, "type": "Feature"}], "type": "FeatureCollection"}
 
   >>> feature_collection.errors()
   []
@@ -273,6 +273,56 @@ This encoding/decoding functionality shown in the previous can be extended to cu
 
   >>> geojson.dumps(point_instance, sort_keys=True)  # doctest: +ELLIPSIS
   '{"coordinates": [52.23..., -19.23...], "type": "Point"}'
+
+Foreign members and field preservation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Objects obtained through ``__geo_interface__`` may carry non-standard
+(foreign) members, such as a collection source. ``GeoJSON.to_instance`` and
+the object constructors accept a ``keep_extra`` option, which is enabled by
+default. Foreign members are kept on the level of the hierarchy where they
+were provided: feature members stay on the feature, geometry members stay on
+the geometry, and collection members stay on the collection. Passing
+``keep_extra=False`` drops foreign members explicitly; standard members
+(``type``, ``id``, ``geometry``, ``properties``, ``coordinates``,
+``features``, ``geometries`` and ``bbox``) are always preserved and keep
+going through the existing type checks, coordinate cleaning and validation.
+``preserve_extra`` is accepted as an alias of ``keep_extra``; passing both
+with different values raises ``ValueError``.
+
+.. code:: python
+
+  >>> source = {
+  ...     'type': 'Feature',
+  ...     'properties': {'note': None, 'tags': ['field', 'verified']},
+  ...     'geometry': {
+  ...         'type': 'Point',
+  ...         'coordinates': [1.2345678, 2.3456789],
+  ...         'survey': 'gps',
+  ...     },
+  ...     'ingest_id': 42,
+  ... }
+
+  >>> feature = geojson.GeoJSON.to_instance(source)
+
+  >>> feature['ingest_id'], feature.geometry['survey']
+  (42, 'gps')
+
+  >>> feature['properties']
+  {'note': None, 'tags': ['field', 'verified']}
+
+Conversion produces an independent object: the source mapping and the
+converted object share no nested dictionaries or lists, so changing the
+source afterwards does not change the converted object. The ``properties``
+member is preserved as provided, including ``null`` and list values, instead
+of being coerced into an empty object.
+
+Values that cannot be encoded as JSON are not silently dropped. They are
+reported by the JSON encoder when calling ``geojson.dump`` or
+``geojson.dumps``: non-serializable values raise ``TypeError``, while ``NaN``
+and infinities raise ``ValueError`` because only strict JSON is emitted.
+Values that also violate the GeoJSON structure (for example a non-numeric
+coordinate) raise ``ValueError`` earlier, during conversion.
 
 Default and custom precision
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

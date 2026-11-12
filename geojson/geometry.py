@@ -1,7 +1,7 @@
 from decimal import Decimal
 from numbers import Number, Real
 
-from geojson.base import GeoJSON
+from geojson.base import GeoJSON, filter_extra, resolve_keep_extra
 
 
 DEFAULT_PRECISION = 6
@@ -12,7 +12,8 @@ class Geometry(GeoJSON):
     Represents an abstract base class for a WGS84 geometry.
     """
 
-    def __init__(self, coordinates=None, validate=False, precision=None, **extra):
+    def __init__(self, coordinates=None, validate=False, precision=None,
+                 keep_extra=None, preserve_extra=None, **extra):
         """
         Initialises a Geometry object.
 
@@ -22,8 +23,13 @@ class Geometry(GeoJSON):
         :type validate: boolean
         :param precision: Number of decimal places for lat/lon coords.
         :type precision: integer
+        :param keep_extra: Preserve non-standard members of the geometry,
+        keeping them on the same level. Coordinates are always validated
+        and rounded to the given precision regardless of this option.
+        :type keep_extra: bool
         """
-        super().__init__(**extra)
+        keep_extra = resolve_keep_extra(keep_extra, preserve_extra)
+        super().__init__(**filter_extra(extra, keep_extra))
         if precision is None:
             precision = DEFAULT_PRECISION
         self["coordinates"] = self.clean_coordinates(
@@ -59,9 +65,16 @@ class GeometryCollection(GeoJSON):
     Represents an abstract base class for collections of WGS84 geometries.
     """
 
-    def __init__(self, geometries=None, **extra):
-        super().__init__(**extra)
-        self["geometries"] = geometries or []
+    def __init__(self, geometries=None, keep_extra=None,
+                 preserve_extra=None, **extra):
+        keep_extra = resolve_keep_extra(keep_extra, preserve_extra)
+        super().__init__(**filter_extra(extra, keep_extra))
+        self["geometries"] = [
+            GeoJSON.to_instance(geometry, keep_extra=keep_extra)
+            if geometry is not None and not isinstance(geometry, GeoJSON)
+            else geometry
+            for geometry in (geometries or [])
+        ]
 
     def errors(self):
         errors = [geom.errors() for geom in self['geometries']]

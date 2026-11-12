@@ -1,5 +1,40 @@
 import geojson
-from geojson.mapping import to_mapping
+from geojson.mapping import deep_copy, to_mapping
+
+# Standard members of the GeoJSON object types. Anything else is a foreign
+# (non-standard) member and is only retained when keep_extra is enabled.
+STANDARD_MEMBERS = frozenset((
+    "type", "id", "geometry", "properties", "coordinates",
+    "features", "geometries", "bbox",
+))
+
+
+def filter_extra(members, keep_extra):
+    """
+    Return the members to store on a converted object. Foreign (non-standard)
+    members are only kept when keep_extra is enabled, while standard members
+    survive either way.
+    """
+    if keep_extra:
+        return dict(members)
+    return {k: v for k, v in members.items() if k in STANDARD_MEMBERS}
+
+
+def resolve_keep_extra(keep_extra=None, preserve_extra=None):
+    """
+    Resolves the field-preservation option. ``preserve_extra`` is an alias of
+    ``keep_extra``. Passing both explicitly is a caller error; with neither
+    given the option defaults to enabled.
+    """
+    if (keep_extra is not None and preserve_extra is not None
+            and keep_extra != preserve_extra):
+        raise ValueError(
+            "keep_extra and preserve_extra are aliases; pass only one")
+    if keep_extra is not None:
+        return keep_extra
+    if preserve_extra is not None:
+        return preserve_extra
+    return True
 
 
 class GeoJSON(dict):
@@ -66,7 +101,8 @@ class GeoJSON(dict):
             return self
 
     @classmethod
-    def to_instance(cls, ob, default=None, strict=False):
+    def to_instance(cls, ob, default=None, strict=False, keep_extra=None,
+                    preserve_extra=None):
         """Encode a GeoJSON dict into an GeoJSON object.
         Assumes the caller knows that the dict should satisfy a GeoJSON type.
 
@@ -82,6 +118,14 @@ class GeoJSON(dict):
         :param strict: Raise error if unable to coerce particular keys or
         attributes to a valid GeoJSON structure.
         :type strict: bool
+        :param keep_extra: Preserve non-standard (foreign) members of the
+        object and of its nested objects, keeping them on the same level in
+        the hierarchy. When False, only standard GeoJSON members survive the
+        conversion. Standard members are always handled with the existing
+        type checks regardless of this option. Enabled by default.
+        :type keep_extra: bool
+        :param preserve_extra: Alias of keep_extra.
+        :type preserve_extra: bool
         :return: A GeoJSON object with the dict's elements as its constituents.
         :rtype: GeoJSON
         :raises TypeError: If the input dict contains items that are not valid
@@ -91,15 +135,16 @@ class GeoJSON(dict):
         :raises AttributeError: If the input dict contains items that are not
         valid GeoJSON types.
         """
+        keep_extra = resolve_keep_extra(keep_extra, preserve_extra)
         if ob is None and default is not None:
             instance = default()
         elif isinstance(ob, GeoJSON):
             instance = ob
         else:
             mapping = to_mapping(ob)
-            d = {}
-            for k in mapping:
-                d[k] = mapping[k]
+            # Detach the copy from the source mapping: later changes to the
+            # external mapping must never propagate into the converted object.
+            d = filter_extra(deep_copy(mapping), keep_extra)
             try:
                 type_ = d.pop("type")
                 try:
@@ -109,7 +154,7 @@ class GeoJSON(dict):
                     # it's not a valid GeoJSON type
                     raise AttributeError(f"{type_} is not a GeoJSON type")
                 geojson_factory = getattr(geojson.factory, type_)
-                instance = geojson_factory(**d)
+                instance = geojson_factory(keep_extra=keep_extra, **d)
             except (AttributeError, KeyError) as invalid:
                 if strict:
                     raise ValueError(
