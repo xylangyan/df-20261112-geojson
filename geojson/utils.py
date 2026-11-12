@@ -1,9 +1,97 @@
 """Coordinate utility functions."""
 
 
+def _longitude_interval(longitudes):
+    """
+    Returns the (west, east) longitude bounds of the smallest interval
+    containing all given longitudes.
+
+    Longitudes are treated as positions on a circle, so an interval may
+    cross the antimeridian. When it does, west is greater than east,
+    following the convention of RFC 7946 section 5.2.
+    """
+    if len(longitudes) == 1:
+        return longitudes[0], longitudes[0]
+
+    unique = sorted(set(longitudes))
+    span = unique[-1] - unique[0]
+    if span >= 360.0:
+        # Longitudes cover (or exceed) the full circle; the interval is
+        # the whole world.
+        return unique[0], unique[-1]
+
+    # The smallest containing interval is the complement of the largest
+    # gap between consecutive longitudes (wrapping around the circle).
+    # Start with the wrap-around gap between the last and first values.
+    largest_gap = 360.0 - span
+    gap_start = len(unique) - 1
+    for index in range(len(unique) - 1):
+        gap = unique[index + 1] - unique[index]
+        if gap > largest_gap:
+            largest_gap = gap
+            gap_start = index
+
+    west = unique[(gap_start + 1) % len(unique)]
+    east = unique[gap_start]
+    return west, east
+
+
+def bbox(obj):
+    """
+    Returns the bounding box of a GeoJSON object.
+
+    Longitude bounds describe the smallest interval containing every
+    longitude. If that interval crosses the antimeridian, the west
+    bound is greater than the east bound (RFC 7946 section 5.2), so a
+    geometry spanning 179E and 179W is reported as [179.0, ..., -179.0,
+    ...] instead of nearly the whole world.
+
+    Objects carrying a precomputed "bbox" member are returned as-is.
+    Features with a null geometry, empty geometries and empty
+    collections have no extent and yield None. Objects mixing 2D and 3D
+    positions produce a 2D bbox; purely 3D objects produce a 6-element
+    bbox. The input object is never modified.
+
+    :param obj: A GeoJSON object, geometry or feature to bound.
+    :type obj: GeoJSON, dict
+    :return: The bounding box as a list, or None if there are no
+    coordinates to bound.
+    :rtype: list, None
+    """
+    if isinstance(obj, dict) and 'bbox' in obj:
+        return obj['bbox']
+
+    longitudes = []
+    latitudes = []
+    altitudes = []
+    has_2d = False
+    for position in coords(obj):
+        if len(position) < 2:
+            continue
+        longitudes.append(position[0])
+        latitudes.append(position[1])
+        if len(position) > 2:
+            altitudes.append(position[2])
+        else:
+            has_2d = True
+
+    if not longitudes:
+        return None
+
+    west, east = _longitude_interval(longitudes)
+    south = min(latitudes)
+    north = max(latitudes)
+
+    if altitudes and not has_2d:
+        return [west, south, min(altitudes), east, north, max(altitudes)]
+    return [west, south, east, north]
+
+
 def coords(obj):
     """
     Yields the coordinates from a Feature or Geometry.
+
+    Null geometries and null collection members are skipped.
 
     :param obj: A geometry or feature to extract the coordinates from.
     :type obj: Feature, Geometry
@@ -11,6 +99,8 @@ def coords(obj):
     :rtype: generator
     """
     # Handle recursive case first
+    if obj is None:  # null geometry or empty collection member
+        return
     if 'features' in obj:  # FeatureCollection
         for f in obj['features']:
             yield from coords(f)

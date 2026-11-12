@@ -1,6 +1,13 @@
 Changes
 =======
 
+Unreleased
+----------
+
+- Add `geojson.utils.bbox` to compute the bounding box of geometries,
+  features and feature collections, with antimeridian-aware longitude
+  bounds; `coords` now skips null geometries
+
 3.3.0
 ----------
 

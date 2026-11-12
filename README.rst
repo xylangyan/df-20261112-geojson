@@ -370,6 +370,42 @@ map_geometries
   >>> geojson.dumps(new_point, sort_keys=True)
   '{"geometries": [{"coordinates": [[-115.81, 37.24]], "type": "MultiPoint"}], "type": "GeometryCollection"}'
 
+bbox
+~~~~
+
+:code:`geojson.utils.bbox` computes the bounding box of a geometry, feature or feature collection, including nested geometry collections. The longitude bounds describe the smallest interval containing every longitude. When that interval crosses the antimeridian, the west bound is greater than the east bound, so positions near 179E and 179W do not produce a box covering nearly the whole world.
+
+.. code:: python
+
+  >>> import geojson
+
+  >>> line = geojson.LineString([(179.0, 0.0), (-179.0, 0.0)])
+  >>> geojson.utils.bbox(line)
+  [179.0, 0.0, -179.0, 0.0]
+
+  >>> ordinary = geojson.LineString([(10.0, 20.0), (30.0, 40.0)])
+  >>> geojson.utils.bbox(ordinary)
+  [10.0, 20.0, 30.0, 40.0]
+
+The result is a plain list that survives a JSON round trip when attached as the "bbox" member.
+
+.. code:: python
+
+  >>> line['bbox'] = geojson.utils.bbox(line)
+  >>> restored = geojson.loads(geojson.dumps(line, sort_keys=True))
+  >>> restored['bbox']
+  [179.0, 0.0, -179.0, 0.0]
+
+Pure 3D objects return a 6-element box, while an object mixing 2D and 3D positions returns a 4-element box. A precomputed "bbox" member is returned unchanged, and empty geometries, null geometries and empty collections return :code:`None`. The input object is never modified.
+
+.. code:: python
+
+  >>> geojson.utils.bbox(geojson.LineString([(10.0, 20.0, 5.0), (30.0, 40.0, 50.0)]))
+  [10.0, 20.0, 5.0, 30.0, 40.0, 50.0]
+
+  >>> geojson.utils.bbox(geojson.Feature(geometry=None)) is None
+  True
+
 validation
 ~~~~~~~~~~
 
