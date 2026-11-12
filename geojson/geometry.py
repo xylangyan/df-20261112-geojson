@@ -5,6 +5,7 @@ from geojson.base import GeoJSON
 
 
 DEFAULT_PRECISION = 6
+_DEFAULT_PRECISION = object()
 
 
 class Geometry(GeoJSON):
@@ -12,7 +13,8 @@ class Geometry(GeoJSON):
     Represents an abstract base class for a WGS84 geometry.
     """
 
-    def __init__(self, coordinates=None, validate=False, precision=None, **extra):
+    def __init__(self, coordinates=None, validate=False,
+                 precision=_DEFAULT_PRECISION, **extra):
         """
         Initialises a Geometry object.
 
@@ -21,10 +23,12 @@ class Geometry(GeoJSON):
         :param validate: Raise exception if validation errors are present?
         :type validate: boolean
         :param precision: Number of decimal places for lat/lon coords.
-        :type precision: integer
+            Omit to use ``DEFAULT_PRECISION``; pass ``None`` to preserve
+            coordinates without rounding.
+        :type precision: integer or None
         """
         super().__init__(**extra)
-        if precision is None:
+        if precision is _DEFAULT_PRECISION:
             precision = DEFAULT_PRECISION
         self["coordinates"] = self.clean_coordinates(
             coordinates or [], precision)
@@ -48,7 +52,10 @@ class Geometry(GeoJSON):
             elif isinstance(coord, Geometry):
                 new_coords.append(coord['coordinates'])
             elif isinstance(coord, (Real, Decimal)):
-                new_coords.append(round(coord, precision))
+                if precision is None:
+                    new_coords.append(coord)
+                else:
+                    new_coords.append(round(coord, precision))
             else:
                 raise ValueError(f"{coord!r} is not a JSON compliant number")
         return new_coords
@@ -59,9 +66,23 @@ class GeometryCollection(GeoJSON):
     Represents an abstract base class for collections of WGS84 geometries.
     """
 
-    def __init__(self, geometries=None, **extra):
+    def __init__(self, geometries=None, precision=None, **extra):
+        """
+        Initialises a GeometryCollection object.
+
+        :param geometries: Geometries contained in the collection.
+        :type geometries: list
+        :param precision: Number of decimal places for lat/lon coords of
+            geometries supplied as raw GeoJSON structures. ``None`` preserves
+            their coordinates as-is.
+        :type precision: integer or None
+        """
         super().__init__(**extra)
-        self["geometries"] = geometries or []
+        self["geometries"] = [
+            self.to_instance(geom, precision=precision)
+            if not isinstance(geom, GeoJSON) else geom
+            for geom in geometries or []
+        ]
 
     def errors(self):
         errors = [geom.errors() for geom in self['geometries']]

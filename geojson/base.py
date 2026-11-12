@@ -66,7 +66,7 @@ class GeoJSON(dict):
             return self
 
     @classmethod
-    def to_instance(cls, ob, default=None, strict=False):
+    def to_instance(cls, ob, default=None, strict=False, precision=None):
         """Encode a GeoJSON dict into an GeoJSON object.
         Assumes the caller knows that the dict should satisfy a GeoJSON type.
 
@@ -82,6 +82,9 @@ class GeoJSON(dict):
         :param strict: Raise error if unable to coerce particular keys or
         attributes to a valid GeoJSON structure.
         :type strict: bool
+        :param precision: Number of decimal places for geometry coordinates.
+            ``None`` preserves numeric coordinates as-is.
+        :type precision: integer or None
         :return: A GeoJSON object with the dict's elements as its constituents.
         :rtype: GeoJSON
         :raises TypeError: If the input dict contains items that are not valid
@@ -109,6 +112,7 @@ class GeoJSON(dict):
                     # it's not a valid GeoJSON type
                     raise AttributeError(f"{type_} is not a GeoJSON type")
                 geojson_factory = getattr(geojson.factory, type_)
+                d["precision"] = precision
                 instance = geojson_factory(**d)
             except (AttributeError, KeyError) as invalid:
                 if strict:

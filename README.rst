@@ -290,6 +290,8 @@ coordinates to 6 decimal places (roughly 0.1 meters) by default and can be custo
   >>> Point((-115.12341234, 37.12341234), precision=8)  # rounded to 8 decimal places
   {"coordinates": [-115.12341234, 37.12341234], "type": "Point"}
 
+`Feature`, `FeatureCollection`, and `GeometryCollection` apply the same rule to geometries supplied as raw
+GeoJSON mappings: coordinates are preserved unless ``precision`` is explicitly requested.
 
 Precision can be set at the package level by setting `geojson.geometry.DEFAULT_PRECISION`
 
@@ -306,7 +308,21 @@ Precision can be set at the package level by setting `geojson.geometry.DEFAULT_P
   {"coordinates": [-115.12341, 37.12341], "type": "Point"}
 
 
-After setting the DEFAULT_PRECISION, coordinates will be rounded off to that precision with `geojson.load` or `geojson.loads`. Following one of those with `geojson.dump` is a quick and easy way to scale down the precision of excessively precise, arbitrarily-sized GeoJSON data.
+The default precision applies when a geometry is constructed directly from Python values. Decoding with
+`geojson.load` or `geojson.loads` preserves the coordinates from the source document, so editing properties and
+encoding the result again does not move geometries. To quantize explicitly, pass ``precision`` to those functions.
+Following a load with a dump is then a quick and easy way to scale down the precision of excessively precise,
+arbitrarily-sized GeoJSON data.
+
+.. code:: python
+
+  >>> source = '{"coordinates": [-115.123412341234, 37.123412341234], "type": "Point"}'
+
+  >>> geojson.loads(source)  # coordinates preserved
+  {"coordinates": [-115.123412341234, 37.123412341234], "type": "Point"}
+
+  >>> geojson.loads(source, precision=6)  # rounded to 6 decimal places
+  {"coordinates": [-115.123412, 37.123412], "type": "Point"}
 
 
 Helpful utilities

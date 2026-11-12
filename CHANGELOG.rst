@@ -1,6 +1,14 @@
 Changes
 =======
 
+Unreleased
+----------
+
+- Preserve source coordinate precision when decoding with ``geojson.load``/``geojson.loads`` and
+  when constructing ``Feature``/``FeatureCollection``/``GeometryCollection`` from raw GeoJSON.
+  Coordinates are only rounded when ``precision`` is explicitly requested; direct geometry
+  construction from Python values still defaults to ``DEFAULT_PRECISION``.
+
 3.3.0
 ----------
 
